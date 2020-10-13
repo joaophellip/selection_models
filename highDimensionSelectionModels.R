@@ -6,23 +6,23 @@ library("pracma")
 library("stats")
 library("leaps")
 
-cat("--- generating linear model for n=100, p=10, and k=3 ----\n")
-cat("----- error variance = 0.05 ; data variance = 1 ----\n")
+cat("--- generating linear model for n=100, p=1000, and k=3 ----\n")
+cat("----- error variance = 0.01 ; data variance = 1 ----\n")
 
-p <- 10L
-n <- 1000L
+p <- 1000L
+n <- 100L
 k <- 3L
-errorVar <- 0.05
+errorVar <- 0.01
 dataVar <- 1.0
 
 dataset <- SimpleLinearModel(n = n, p = p, k = k, errorVar = errorVar, dataVar = dataVar)
 dataset$generate()
 
-cat("----- training set size = 700; ----\n")
+cat("----- training set size = 70; ----\n")
 cat("----- running selection models...; ----\n")
 
-l <- 700L
-nlambdaRidge <- p + 1
+l <- 70L
+nlambdaRidge <- 100
 nlambdaLasso <- 100
 
 # scale the X values from dataset before splitting into training and test sets
@@ -41,9 +41,10 @@ lassoFit <- glmnet(x = data.matrix(sets$trainingDataset[,-1]), y = data.matrix(s
 # the actual number of lambdas to which the glmnet generated a prediction in lasso
 nTrueLambdaLasso <- length(lassoFit$df)
 
-# a BIC model
-bestSubsetFit <- regsubsets(x = data.matrix(sets$trainingDataset[,-1]), y = data.matrix(sets$trainingDataset$y), 
-                            nvmax = p)
+# a forward stepwise model
+maxSizeOfSubsets <- 8
+forwardStepwiseFit <- regsubsets(x = data.matrix(sets$trainingDataset[,-1]), y = data.matrix(sets$trainingDataset$y), 
+                                 method = "forward", nvmax = maxSizeOfSubsets)
 
 # predictions over test and training datasets
 ridgeTestPredictions <- predict(ridgeFit, data.matrix(sets$testDataset[,-1]))
@@ -63,29 +64,27 @@ lassoTestRSS <- colMeans((matrix(rep(sets$testDataset$y, nTrueLambdaLasso), nrow
 lassoTrainingRSS <- colMeans((matrix(rep(sets$trainingDataset$y, nTrueLambdaLasso), nrow=l, ncol=nTrueLambdaLasso) - lassoTrainingPredictions)^2)
 lassoTrainingRegularizedRSS <- colMeans((matrix(rep(sets$trainingDataset$y, nTrueLambdaLasso), nrow=l, ncol=nTrueLambdaLasso) - lassoTrainingPredictions)^2) + lassoFit$lambda*sumBetasLasso
 
-# residual errors for best subset with BIC
-bestSubsetTestRSS <- rep(0, p)
-for (j in 1:p){
-  coefi <- coef(bestSubsetFit, id=j)
+# residual errors for forward stepwise with BIC
+forwardStepwiseTestRSS <- rep(0, maxSizeOfSubsets)
+for (j in 1:maxSizeOfSubsets){
+  coefi <- coef(forwardStepwiseFit, id=j)
   xvars <- names(coefi)
   pred <- data.matrix(sets$testDataset[,xvars[2:(j+1)]])%*%data.matrix(coefi[2:(j+1)]) + coefi[1]
-  bestSubsetTestRSS[j] <- sum((sets$testDataset$y - pred)^2)
+  forwardStepwiseTestRSS[j] <- sum((sets$testDataset$y - pred)^2)
 }
 
 cat("--- Ridge Model Summary: \n")
 print(summary(ridgeFit))
 cat("--- Lasso Model Summary: \n")
 print(summary(lassoFit))
-cat("--- Best subset Model Summary: \n")
-print(summary(bestSubsetFit))
 
 # graph limits for plotting legend boxes
 ridgeSupYlim = max(ridgeTestRSS, ridgeTrainingRSS, ridgeTrainingRegularizedRSS) + 1
 ridgeSupXlim = max(sumBetasRidge)
 lassoSupYlim = max(lassoTestRSS, lassoTrainingRSS, lassoTrainingRegularizedRSS) + 1
 lassoSupXlim = max(lassoFit$df)
-bestSubsetSupYlim = max(summary(bestSubsetFit)$rss, summary(bestSubsetFit)$bic, bestSubsetTestRSS) + 100
-bestSubsetInfYlim = min(summary(bestSubsetFit)$rss, summary(bestSubsetFit)$bic, bestSubsetTestRSS) + 100
+forwardStepwiseSupYlim = max(summary(forwardStepwiseFit)$rss, summary(forwardStepwiseFit)$bic, forwardStepwiseTestRSS) + 100
+forwardStepwiseInfYlim = min(summary(forwardStepwiseFit)$rss, summary(forwardStepwiseFit)$bic, forwardStepwiseTestRSS) + 100
 
 par(mfrow=c(3,1))
 
@@ -107,14 +106,14 @@ legend(lassoSupXlim, lassoSupYlim, legend=c("test", "training", "regularized tra
        col = c("red", "blue", "black"), xjust = 1, lty = 1)
 title("Lasso regression")
 
-# best selection model plot
-plot(x = seq(1,10), y = bestSubsetTestRSS, type="b",
-     xlab = "Tamanho do subconjunto", ylab = "RSS", col = "red", ylim = c(bestSubsetInfYlim, bestSubsetSupYlim))
-lines(x = seq(1,10), y = summary(bestSubsetFit)$rss, type="b", col = "blue")
-lines(x = seq(1,10), y = summary(bestSubsetFit)$bic, type="b", col = "black")
+# forward stepwise model plot
+plot(x = seq(1,8), y = forwardStepwiseTestRSS, type="b",
+     xlab = "Tamanho do subconjunto", ylab = "RSS", col = "red", ylim = c(forwardStepwiseInfYlim, forwardStepwiseSupYlim))
+lines(x = seq(1,8), y = summary(forwardStepwiseFit)$rss, type="b", col = "blue")
+lines(x = seq(1,8), y = summary(forwardStepwiseFit)$bic, type="b", col = "black")
 legend(p, bestSubsetSupYlim, legend=c("test", "training", "BIC"),
        col = c("red", "blue", "black"), xjust = 1, lty = 1)
 title("Best subset selection")
 
-rm(list = c("k", "l", "n", "nlambdaRidge", "nlambdaLasso", "p", "dataVar", "errorVar", "ridgeSupYlim", "ridgeSupXlim", "scaledDataset", "xvars"))
-rm(list = c("bestSubsetInfYlim", "bestSubsetSupYlim", "coefi", "j", "lassoSupXlim", "lassoSupYlim", "nTrueLambdaLasso", "pred", "sumBetasLasso", "sumBetasRidge"))
+rm(list = c("k", "l", "n", "nlambdaRidge", "nlambdaLasso", "p", "dataVar", "errorVar", "ridgeSupYlim", "ridgeSupXlim", "scaledDataset"))
+rm(list = c("coefi", "j", "lassoSupXlim", "lassoSupYlim", "nTrueLambdaLasso", "pred", "sumBetasLasso", "sumBetasRidge"))
