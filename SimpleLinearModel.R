@@ -13,7 +13,7 @@ SimpleLinearModel <- setRefClass("SimpleLinearModel",
                                      if (k > p) stop("k should not be bigger than p")
                                      if (n < 1) stop("n should be bigger than 0")
 
-                                     beta <<- matrix(c(rep(1, k), rep(0, (p - k))), ncol = 1)
+                                     beta <<- matrix(c(rep(1, k-1), c(0,1), rep(0, (p - k - 1))), ncol = 1)
 
                                      # generating n*p iid samples of X ~ N(0, dataVar)
                                      X <- matrix(rnorm(n*p, mean = 0, sd = sqrt(dataVar)), nrow = n, ncol = p)

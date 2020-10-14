@@ -6,8 +6,9 @@ library("pracma")
 library("stats")
 library("leaps")
 
-cat("--- generating linear model for n=100, p=10, and k=3 ----\n")
+cat("--- generating linear model for n=1000, p=10, and k=3 ----\n")
 cat("----- error variance = 0.05 ; data variance = 1 ----\n")
+cat("----- non-null betas : b1, b2, and b4 ----\n")
 
 p <- 10L
 n <- 1000L
@@ -18,8 +19,7 @@ dataVar <- 1.0
 dataset <- SimpleLinearModel(n = n, p = p, k = k, errorVar = errorVar, dataVar = dataVar)
 dataset$generate()
 
-cat("----- training set size = 700 ----\n")
-cat("----- running selection models 100 times ----\n")
+cat("--- running selection models 100 times ----\n")
 
 l <- 700L
 nlambdaRidge <- p + 1
@@ -138,8 +138,9 @@ plot(x = seq(3,10), y = colMeans(bestSubsetTestRSS)[3:10], type="b",
 title("test RSS for subset size >= 3")
 
 # frequency of variables for subset size == 3
-barplot(tabulate(selectedVariables, nbins=8))
-title("frequency of variables for subset size == 3")
+barplot(tabulate(selectedVariables, nbins=10), names.arg = c("x.1", "x.2", "x.3",
+                                                      "x.4", "x.5", "x.6", "x.7", "x.8", "x.9", "x.10"))
+title("number of variable occurrences for subset size == 3")
 
 # clean up variables
 rm(list = c("repTimes", "val", "k", "l", "n", "nlambdaRidge", "nlambdaLasso", "p", "dataVar", "errorVar", "ridgeSupYlim", "ridgeSupXlim", "scaledDataset", "xvars"))
