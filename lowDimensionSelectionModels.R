@@ -31,19 +31,20 @@ scaledDataset[, 2:p+1] <- scale(scaledDataset[, 2:p+1])
 sets <- SplitDataset(dataset = scaledDataset, l = l)
 sets$split()
 
-# a ridge model
+# a ridge regularization model
 ridgeFit <- glmnet(x = data.matrix(sets$trainingDataset[,-1]), y = data.matrix(sets$trainingDataset$y),
                    alpha = 0, nlambda = nlambdaRidge, standardize = FALSE)
 
-# a lasso model
+# a lasso regularization model
 lassoFit <- glmnet(x = data.matrix(sets$trainingDataset[,-1]), y = data.matrix(sets$trainingDataset$y),
                    alpha = 1, nlambda = nlambdaLasso, standardize = FALSE)
+
 # the actual number of lambdas to which the glmnet generated a prediction in lasso
 nTrueLambdaLasso <- length(lassoFit$df)
 
-# a BIC model
+# an exhaustive subset selection model
 bestSubsetFit <- regsubsets(x = data.matrix(sets$trainingDataset[,-1]), y = data.matrix(sets$trainingDataset$y), 
-                            nvmax = p)
+                            method = "exhaustive", nvmax = p)
 
 # predictions over test and training datasets
 ridgeTestPredictions <- predict(ridgeFit, data.matrix(sets$testDataset[,-1]))
@@ -79,15 +80,16 @@ print(summary(lassoFit))
 cat("--- Best subset Model Summary: \n")
 print(summary(bestSubsetFit))
 
-# graph limits for plotting legend boxes
-ridgeSupYlim = max(ridgeTestRSS, ridgeTrainingRSS, ridgeTrainingRegularizedRSS) + 1
-ridgeSupXlim = max(sumBetasRidge)
-lassoSupYlim = max(lassoTestRSS, lassoTrainingRSS, lassoTrainingRegularizedRSS) + 1
-lassoSupXlim = max(lassoFit$df)
-bestSubsetSupYlim = max(summary(bestSubsetFit)$rss, summary(bestSubsetFit)$bic, bestSubsetTestRSS) + 100
-bestSubsetInfYlim = min(summary(bestSubsetFit)$rss, summary(bestSubsetFit)$bic, bestSubsetTestRSS) + 100
-
+# first graph : plot of ridge, lasso, and best selection as function of complexity measures
 par(mfrow=c(3,1))
+
+# graph limits for plotting legend boxes
+ridgeSupYlim <- max(ridgeTestRSS, ridgeTrainingRSS, ridgeTrainingRegularizedRSS) + 1
+ridgeSupXlim <- max(sumBetasRidge)
+lassoSupYlim <- max(lassoTestRSS, lassoTrainingRSS, lassoTrainingRegularizedRSS) + 1
+lassoSupXlim <- max(lassoFit$df)
+bestSubsetSupYlim <- max(summary(bestSubsetFit)$rss, summary(bestSubsetFit)$bic, bestSubsetTestRSS) + 100
+bestSubsetInfYlim <- min(summary(bestSubsetFit)$rss, summary(bestSubsetFit)$bic, bestSubsetTestRSS) + 100
 
 # ridge model plot
 plot(x = sumBetasRidge, y = ridgeTestRSS, type="b",
@@ -105,16 +107,32 @@ lines(x = lassoFit$df, y = lassoTrainingRSS, type="b", col = "blue")
 lines(x = lassoFit$df, y = lassoTrainingRegularizedRSS, type="b", col = "black")
 legend(lassoSupXlim, lassoSupYlim, legend=c("test", "training", "regularized training"),
        col = c("red", "blue", "black"), xjust = 1, lty = 1)
-title("Lasso regression")
+title("The Lasso")
 
 # best selection model plot
 plot(x = seq(1,10), y = bestSubsetTestRSS, type="b",
-     xlab = "Tamanho do subconjunto", ylab = "RSS", col = "red", ylim = c(bestSubsetInfYlim, bestSubsetSupYlim))
+     xlab = "Subset size", ylab = "RSS", col = "red", ylim = c(bestSubsetInfYlim, bestSubsetSupYlim))
 lines(x = seq(1,10), y = summary(bestSubsetFit)$rss, type="b", col = "blue")
 lines(x = seq(1,10), y = summary(bestSubsetFit)$bic, type="b", col = "black")
 legend(p, bestSubsetSupYlim, legend=c("test", "training", "BIC"),
        col = c("red", "blue", "black"), xjust = 1, lty = 1)
-title("Best subset selection")
+title("Best-subset selection")
+
+# second graph : plot best selection RSS and BIC as function of complexity for set size >= 3; also add histogram for selected variables 
+par(mfrow=c(3,1))
+
+bestSubsetSupYlim <- max(summary(bestSubsetFit)$rss[3:p], bestSubsetTestRSS[3:p]) + 5
+bestSubsetInfYlim <- min(summary(bestSubsetFit)$rss[3:p], bestSubsetTestRSS[3:p]) - 5
+
+# test RSS plot for subset size >= 3
+plot(x = seq(3,10), y = bestSubsetTestRSS[3:10], type="b",
+     xlab = "Subset size", ylab = "RSS", col = "red")
+title("test RSS for subset size >= 3")
+
+# BIC plot for subset size >= 3
+plot(x = seq(3,10), y = summary(bestSubsetFit)$bic[3:10], type="b",
+     xlab = "Subset size", ylab = "BIC", col = "red")
+title("BIC for subset size >= 3")
 
 rm(list = c("k", "l", "n", "nlambdaRidge", "nlambdaLasso", "p", "dataVar", "errorVar", "ridgeSupYlim", "ridgeSupXlim", "scaledDataset", "xvars"))
 rm(list = c("bestSubsetInfYlim", "bestSubsetSupYlim", "coefi", "j", "lassoSupXlim", "lassoSupYlim", "nTrueLambdaLasso", "pred", "sumBetasLasso", "sumBetasRidge"))
